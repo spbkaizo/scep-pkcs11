@@ -6,6 +6,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/ThalesIgnite/crypto11"
 	"github.com/micromdm/scep/v2/cryptoutil"
 	"github.com/micromdm/scep/v2/scep"
 )
@@ -18,6 +19,7 @@ type Signer struct {
 	allowRenewalDays int
 	validityDays     int
 	serverAttrs      bool
+	pkcs11ctx        *crypto11.Context
 }
 
 // Option customizes Signer
@@ -34,6 +36,12 @@ func NewSigner(depot Depot, opts ...Option) *Signer {
 		opt(s)
 	}
 	return s
+}
+
+func WithPkcs11Ctx(ctx *crypto11.Context) Option {
+	return func(s *Signer) {
+		s.pkcs11ctx = ctx
+	}
 }
 
 // WithCAPass specifies the password to use with an encrypted CA key
@@ -101,14 +109,23 @@ func (s *Signer) SignCSR(m *scep.CSRReqMessage) (*x509.Certificate, error) {
 		tmpl.ExtKeyUsage = append(tmpl.ExtKeyUsage, x509.ExtKeyUsageServerAuth)
 	}
 
-	caCerts, caKey, err := s.depot.CA([]byte(s.caPass))
-	if err != nil {
-		return nil, err
-	}
-
-	crtBytes, err := x509.CreateCertificate(rand.Reader, tmpl, caCerts[0], m.CSR.PublicKey, caKey)
-	if err != nil {
-		return nil, err
+	var crtBytes []byte
+	if s.pkcs11ctx != nil {
+		// use pkcs11 signer to do this.
+		realCACert, caSigner, err := s.depot.ExternalCA(s.pkcs11ctx)
+		crtBytes, err = x509.CreateCertificate(rand.Reader, tmpl, realCACert[0], m.CSR.PublicKey, caSigner)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		caCerts, caKey, err := s.depot.CA([]byte(s.caPass))
+		if err != nil {
+			return nil, err
+		}
+		crtBytes, err = x509.CreateCertificate(rand.Reader, tmpl, caCerts[0], m.CSR.PublicKey, caKey)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	crt, err := x509.ParseCertificate(crtBytes)

@@ -17,6 +17,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/ThalesIgnite/crypto11"
 )
 
 // NewFileDepot returns a new cert depot.
@@ -52,6 +54,31 @@ func (d *fileDepot) CA(pass []byte) ([]*x509.Certificate, *rsa.PrivateKey, error
 		return nil, nil, err
 	}
 	return []*x509.Certificate{cert}, key, nil
+}
+
+func (d *fileDepot) ExtPkcs11Signer(config *crypto11.Config) (crypto11.Signer, error) {
+	c, err := crypto11.Configure(config)
+	if err != nil {
+		return nil, err
+	}
+	return c.FindKeyPair(nil, []byte(config.TokenLabel))
+}
+
+func (d *fileDepot) ExternalCA(ctx *crypto11.Context) ([]*x509.Certificate, crypto11.Signer, error) {
+	signers, err := ctx.FindAllKeyPairs()
+	if err != nil {
+		return nil, nil, err
+	}
+	// hard part done, now load the real CA cert
+	extCaPem, err := d.getFile("external-ca.pem")
+	if err != nil {
+		return nil, nil, err
+	}
+	cert, err := loadCert(extCaPem.Data)
+	if err != nil {
+		return nil, nil, err
+	}
+	return []*x509.Certificate{cert}, signers[0], nil
 }
 
 // file permissions

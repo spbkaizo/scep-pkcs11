@@ -1,234 +1,88 @@
-# scep
+# PKCS11 Support for MicroMDM SCEP
 
-[![CI](https://github.com/micromdm/scep/workflows/CI/badge.svg)](https://github.com/micromdm/scep/actions)
-[![Go Reference](https://pkg.go.dev/badge/github.com/micromdm/scep/v2.svg)](https://pkg.go.dev/github.com/micromdm/scep/v2)
+## Prerequisites
 
-`scep` is a Simple Certificate Enrollment Protocol server and client
+You'll need to install a pkcs11 library which is the interface used to perform external cryptographic operations.
 
-## Installation
+In the example we'll follow, we'll tack together some solutions to leverage the AWS KMS solution, via PKCS11.  While it's possible to talk to KMS directly using the AWS SDK, this would only leave us in a position to talk to AWS.  This solution *should* allow you to talk to *anything* which works with pkcs11, including full-fat HSM's.
 
-Binary releases are available on the [releases page](https://github.com/micromdm/scep/releases).
+The code here uses Thales' Crypto11 library, documentation at https://github.com/ThalesIgnite/crypto11
 
-### Compiling from source
+Their library (officially) supports AWS CloudHSM, Thales Luna HSM,  SoftHSM, nCipher nShield, but probably others too as long as there is a pkcs11 library for it.
 
-To compile the SCEP client and server you will need [a Go compiler](https://golang.org/dl/) as well as standard tools like git, make, etc.
 
-1. Clone the repository and get into the source directory: `git clone https://github.com/micromdm/scep.git && cd scep`
-2. Compile the client and server binaries: `make`
+### AWS KMS PKCS11 Implementation
 
-The binaries will be compiled in the current directory and named after the architecture. I.e. `scepclient-linux-amd64` and `scepserver-linux-amd64`.
+For our backend crypto services provider, we'll use https://github.com/JackOfMostTrades/aws-kms-pkcs11 to allow us to talk, via pkcs11, to AWS KMS..  Follow the instructions on that page, the pre-requisite for this is the AWS C++ SDK.  
 
-### Docker
+You'll end up (if successful) with a library object (aws_kms_pkcs11.so) which you'll reference in a config file later.  As crypto programming and debugging is more complicated than other things, it's a splendid idea to test as you go, e.g. by following the 'ssh' instructions on that page to make sure you can use keys.
 
-See Docker documentation below.
+### AWS KMS Keys
 
-## Example setup
+One challenge with hardware security modules in general is key usage - and KMS is no exception.  You can only (usually) generate keys which can be used to Sign/Verify *or* Encrypt/Decrypt.  For this solution we will use an RSA key which has Sign/Verify usage, at the expense of Enc/Dec.  Ordinarily this won't be an issue, but the SCEP protocol requires **both!**.
 
-Minimal example for both server and client.
+Once you've generated a key in KMS, you'll need to give this solution access to it, via key policy and IAM roles.  Out of scope for this, but https://docs.aws.amazon.com/kms/latest/developerguide/key-policies.html and https://docs.aws.amazon.com/kms/latest/developerguide/iam-policies-overview.html are the reference articles.
 
-```
-# SERVER:
-# create a new CA
-./scepserver-linux-amd64 ca -init
-# start server
-./scepserver-linux-amd64 -depot depot -port 2016 -challenge=secret
+At this point, I'm assuming you've created an RSA key, and the policies, and have tested you have access to it via `openssl' or similar on the node you intend to run this on.
 
-# SCEP request:
-# in a separate terminal window, run a client
-# note, if the client.key doesn't exist, the client will create a new rsa private key. Must be in PEM format.
-./scepclient-linux-amd64 -private-key client.key -server-url=http://127.0.0.1:2016/scep -challenge=secret
+## Build/Confgure this Solution
 
-# NDES request:
-# note, this should point to an NDES server, scepserver does not provide NDES.
-./scepclient-linux-amd64 -private-key client.key -server-url=https://scep.example.com:4321/certsrv/mscep/ -ca-fingerprint="e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
-```
+Follow the instruction in the original [README](README.orig.md).
 
-## Server Usage
-
-The default flags configure and run the scep server.
-
-`-depot` must be the path to a folder with `ca.pem` and `ca.key` files.  If you don't already have a CA to use, you can create one using the `ca` subcommand.
-
-The scepserver provides one HTTP endpoint, `/scep`, that facilitates the normal PKIOperation/Message parameters.
-
-Server usage:
-```sh
-$ ./scepserver-linux-amd64 -help
-  -allowrenew string
-    	do not allow renewal until n days before expiry, set to 0 to always allow (default "14")
-  -capass string
-    	passwd for the ca.key
-  -challenge string
-    	enforce a challenge password
-  -crtvalid string
-    	validity for new client certificates in days (default "365")
-  -csrverifierexec string
-    	will be passed the CSRs for verification
-  -debug
-    	enable debug logging
-  -depot string
-    	path to ca folder (default "depot")
-  -log-json
-    	output JSON logs
-  -port string
-    	port to listen on (default "8080")
-  -version
-    	prints version information
-usage: scep [<command>] [<args>]
- ca <args> create/manage a CA
-type <command> --help to see usage for each subcommand
-```
-
-Use the `ca -init` subcommand to create a new CA and private key.
-
-CA sub-command usage:
-```
-$ ./scepserver-linux-amd64 ca -help
-Usage of ca:
-  -country string
-    	country for CA cert (default "US")
-  -depot string
-    	path to ca folder (default "depot")
-  -init
-    	create a new CA
-  -key-password string
-    	password to store rsa key
-  -keySize int
-    	rsa key size (default 4096)
-  -common_name string
-        common name (CN) for CA cert (default "MICROMDM SCEP CA")
-  -organization string
-    	organization for CA cert (default "scep-ca")
-  -organizational_unit string
-    	organizational unit (OU) for CA cert (default "SCEP CA")
-  -years int
-    	default CA years (default 10)
-```
-
-### CSR verifier
-
-The `-csrverifierexec` switch to the SCEP server allows for executing a command before a certificate is issued to verify the submitted CSR. Scripts exiting without errors (zero exit status) will proceed to certificate issuance, otherwise a SCEP error is generated to the client. For example if you wanted to just save the CSR this is a valid CSR verifier shell script:
-
-```sh
-#!/bin/sh
-
-cat - > /tmp/scep.csr
-```
-
-## Client Usage
-
-```sh
-$ ./scepclient-linux-amd64 -help
-Usage of ./scepclient-linux-amd64:
-  -ca-fingerprint string
-    	SHA-256 digest of CA certificate for NDES server. Note: Changed from MD5.
-  -certificate string
-    	certificate path, if there is no key, scepclient will create one
-  -challenge string
-    	enforce a challenge password
-  -cn string
-    	common name for certificate (default "scepclient")
-  -country string
-    	country code in certificate (default "US")
-  -debug
-    	enable debug logging
-  -keySize int
-    	rsa key size (default 2048)
-  -locality string
-    	locality for certificate
-  -log-json
-    	use JSON for log output
-  -organization string
-    	organization for cert (default "scep-client")
-  -ou string
-    	organizational unit for certificate (default "MDM")
-  -private-key string
-    	private key path, if there is no key, scepclient will create one
-  -province string
-    	province for certificate
-  -server-url string
-    	SCEP server url
-  -version
-    	prints version information
-```
-
-Note: Make sure to specify the desired endpoint in your `-server-url` value (e.g. `'http://scep.groob.io:2016/scep'`)
-
-To obtain a certificate through Network Device Enrollment Service (NDES), set `-server-url` to a server that provides NDES.
-This most likely uses the `/certsrv/mscep` path. You will need to add the `-ca-fingerprint` client argument during this request to specify which CA to use.
-
-If you're not sure which SHA-256 hash (for a specific CA) to use, you can use the `-debug` flag to print them out for the CAs returned from the SCEP server.
-
-## Docker
-
-```sh
-# first compile the Docker binaries
-make docker
-
-# build the image
-docker build -t micromdm/scep:latest .
-
-# create CA
-docker run -it --rm -v /path/to/ca/folder:/depot micromdm/scep:latest ca -init
-
-# run
-docker run -it --rm -v /path/to/ca/folder:/depot -p 8080:8080 micromdm/scep:latest
-```
-
-## SCEP library
-
-The core `scep` library can be used for both client and server operations.
+This solution extends the original via command line flags and envronment variables.  I've added a new flag to both the CA init step, and the main program flags.
 
 ```
-go get github.com/micromdm/scep/scep
+...
+  -pkcs11-config string
+        location of json config for pkcs11 external signer
 ```
 
-For detailed usage, see the [Go Reference](https://pkg.go.dev/github.com/micromdm/scep/v2/scep).
+The flag takes in an argument of a filename, which should contain details that are used by PKCS11 to configure itself.  Example contents of this file are:
 
-Example (server):
-
-```go
-// read a request body containing SCEP message
-body, err := ioutil.ReadAll(r.Body)
-if err != nil {
-    // handle err
+```
+cat pkcs11-test.json 
+{
+  "Path": "/usr/lib64/pkcs11/aws_kms_pkcs11.so",
+  "TokenLabel": "scep-scim-testing-kms-key",
+  "Pin": ""
 }
-
-// parse the SCEP message
-msg, err := scep.ParsePKIMessage(body)
-if err != nil {
-    // handle err
-}
-
-// do something with msg
-fmt.Println(msg.MessageType)
-
-// extract encrypted pkiEnvelope
-err := msg.DecryptPKIEnvelope(CAcert, CAkey)
-if err != nil {
-    // handle err
-}
-
-// use the CSR from decrypted PKCS request and sign
-// MyCSRSigner returns an *x509.Certificate here
-crt, err := MyCSRSigner(msg.CSRReqMessage.CSR)
-if err != nil {
-    // handle err
-}
-
-// create a CertRep message from the original
-certRep, err := msg.Success(CAcert, CAkey, crt)
-if err != nil {
-    // handle err
-}
-
-// send response back
-// w is a http.ResponseWriter
-w.Write(certRep.Raw)
 ```
 
-## Server library
+The path should be set to the aws_kms_pkcs11.so library you built earlier, or whatever other pkcs11 library you want to use, along with whatever other settings you need/want and are described [here](https://pkg.go.dev/github.com/ThalesIgnite/crypto11#Config), in JSON format.
 
-You can import the scep endpoint into another Go project. For an example take a look at [scepserver.go](cmd/scepserver/scepserver.go).
+## Creating the new CA
 
-The SCEP server includes a built-in CA/certificate store. This is facilitated by the `Depot` and `CSRSigner` Go interfaces. This certificate storage to happen however you want. It also allows for swapping out the entire CA signer altogether or even using SCEP as a proxy for certificates.
+At this point, we can create our new CA.  Similar to the original usage, but referencing our pkcs11 config file:
+
+```
+[ec2-user@ip-172-31-29-213 scep-130323]$ ./scepserver-linux-amd64 ca -init -pkcs11-config pkcs11-test.json -depot somedirectory
+Initializing new CA
+[ec2-user@ip-172-31-29-213 scep-130323]$ 
+```
+
+In addition to the original `ca.pem` in `somedirectory` you should also find an `external-ca.pem` file.  This is the CA cert which is created and signed using the external RSA key.  To verify this, you can extract the public key, and compare it to the one available in the AWS KMS console.  Using OpenSSL:
+
+```
+[ec2-user@somewhere somedirectory]$ openssl x509 -pubkey -noout -in external-ca.pem 
+-----BEGIN PUBLIC KEY-----
+MIICIjANBgkqhkiG9w0BAQEFAAOCAg8AMIICCgKCAgEAsYArU9OWSXcVcLh7pGm5
+...
+5p10kFeZA3PpCTZZzZX0Hu0CAwEAAQ==
+-----END PUBLIC KEY-----
+```
+
+If this matches the one in the console fantastic - it's working and we can talk to KMS successfully!
+
+## Normal Operation
+
+This is the same as described in the original solution, but again we tell it via flags to use pkcs11.
+
+For example:
+
+```
+./scepserver-linux-amd64 -depot somedirectory -port 2016 -challenge=SOMESECRET  -debug -allowrenew 0 -pkcs11-config pkcs11-test.json
+```
+
+## Bugs/Todo
+
+As part of the SCEP operation, the local CA is supplied and not the CA certificate used to sign the issued cert.  This is not currently an issue for me, but I need to investigate if that can be amended to replace that certificate with the 'real' one.

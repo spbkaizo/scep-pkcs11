@@ -1,8 +1,10 @@
 package main
 
 import (
+	"crypto"
 	"crypto/rand"
 	"crypto/rsa"
+	"crypto/sha256"
 	"crypto/x509"
 	"encoding/pem"
 	"flag"
@@ -14,6 +16,7 @@ import (
 	"strconv"
 	"syscall"
 
+	"github.com/ThalesIgnite/crypto11"
 	"github.com/micromdm/scep/v2/csrverifier"
 	executablecsrverifier "github.com/micromdm/scep/v2/csrverifier/executable"
 	scepdepot "github.com/micromdm/scep/v2/depot"
@@ -51,6 +54,7 @@ func main() {
 		flClAllowRenewal    = flag.String("allowrenew", envString("SCEP_CERT_RENEW", "14"), "do not allow renewal until n days before expiry, set to 0 to always allow")
 		flChallengePassword = flag.String("challenge", envString("SCEP_CHALLENGE_PASSWORD", ""), "enforce a challenge password")
 		flCSRVerifierExec   = flag.String("csrverifierexec", envString("SCEP_CSR_VERIFIER_EXEC", ""), "will be passed the CSRs for verification")
+		flPkcs11ConfigFile  = flag.String("pkcs11-config", envString("SCEP_PKCS11_CONFIGFILE", ""), "location of json config for pkcs11 external signer")
 		flDebug             = flag.Bool("debug", envBool("SCEP_LOG_DEBUG"), "enable debug logging")
 		flLogJSON           = flag.Bool("log-json", envBool("SCEP_LOG_JSON"), "output JSON logs")
 		flSignServerAttrs   = flag.Bool("sign-server-attrs", envBool("SCEP_SIGN_SERVER_ATTRS"), "sign cert attrs for server usage")
@@ -147,6 +151,16 @@ func main() {
 		if *flSignServerAttrs {
 			signerOpts = append(signerOpts, scepdepot.WithSeverAttrs())
 		}
+		if *flPkcs11ConfigFile != "" {
+			// Test config?
+			ctx, err := crypto11.ConfigureFromFile(*flPkcs11ConfigFile)
+			if err != nil {
+				lginfo.Log("err", "cannot configure crypto11 library using provided config")
+				lginfo.Log("err", err)
+				os.Exit(1)
+			}
+			signerOpts = append(signerOpts, scepdepot.WithPkcs11Ctx(ctx))
+		}
 		var signer scepserver.CSRSigner = scepdepot.NewSigner(depot, signerOpts...)
 		if *flChallengePassword != "" {
 			signer = scepserver.ChallengeMiddleware(*flChallengePassword, signer)
@@ -187,15 +201,16 @@ func main() {
 
 func caMain(cmd *flag.FlagSet) int {
 	var (
-		flDepotPath  = cmd.String("depot", "depot", "path to ca folder")
-		flInit       = cmd.Bool("init", false, "create a new CA")
-		flYears      = cmd.Int("years", 10, "default CA years")
-		flKeySize    = cmd.Int("keySize", 4096, "rsa key size")
-		flCommonName = cmd.String("common_name", "MICROMDM SCEP CA", "common name (CN) for CA cert")
-		flOrg        = cmd.String("organization", "scep-ca", "organization for CA cert")
-		flOrgUnit    = cmd.String("organizational_unit", "SCEP CA", "organizational unit (OU) for CA cert")
-		flPassword   = cmd.String("key-password", "", "password to store rsa key")
-		flCountry    = cmd.String("country", "US", "country for CA cert")
+		flDepotPath        = cmd.String("depot", "depot", "path to ca folder")
+		flInit             = cmd.Bool("init", false, "create a new CA")
+		flYears            = cmd.Int("years", 10, "default CA years")
+		flKeySize          = cmd.Int("keySize", 4096, "rsa key size")
+		flCommonName       = cmd.String("common_name", "MICROMDM SCEP CA", "common name (CN) for CA cert")
+		flOrg              = cmd.String("organization", "scep-ca", "organization for CA cert")
+		flOrgUnit          = cmd.String("organizational_unit", "SCEP CA", "organizational unit (OU) for CA cert")
+		flPassword         = cmd.String("key-password", "", "password to store rsa key")
+		flCountry          = cmd.String("country", "US", "country for CA cert")
+		flPkcs11ConfigFile = cmd.String("pkcs11-config", envString("SCEP_PKCS11_CONFIGFILE", ""), "location of json config for pkcs11 external signer")
 	)
 	cmd.Parse(os.Args[2:])
 	if *flInit {
@@ -208,6 +223,43 @@ func caMain(cmd *flag.FlagSet) int {
 		if err := createCertificateAuthority(key, *flYears, *flCommonName, *flOrg, *flOrgUnit, *flCountry, *flDepotPath); err != nil {
 			fmt.Println(err)
 			return 1
+		}
+		if *flPkcs11ConfigFile != "" {
+			// using pkcs11, let's create a new CA cert
+			ctx, err := crypto11.ConfigureFromFile(*flPkcs11ConfigFile)
+			if err != nil {
+				fmt.Println(err)
+				return 1
+			}
+			signers, err := ctx.FindAllKeyPairs()
+			if err != nil {
+				fmt.Println(err)
+				return 1
+			}
+			// test we can use to sign and verify
+			data := []byte("mary had a little lamb")
+			h := sha256.New()
+			_, err = h.Write(data)
+			if err != nil {
+				fmt.Println(err)
+				return 1
+			}
+			hash := h.Sum([]byte{})
+			sig, err := signers[0].Sign(rand.Reader, hash, crypto.SHA256)
+			if err != nil {
+				fmt.Println(err)
+				return 1
+			}
+			err = rsa.VerifyPKCS1v15(signers[0].Public().(crypto.PublicKey).(*rsa.PublicKey), crypto.SHA256, hash, sig)
+			if err != nil {
+				fmt.Println(err)
+				return 1
+			}
+			// now attempt to create the 'real' ca certificate
+			if err := createExternalCertificateAuthority(signers[0], *flYears, *flCommonName, *flOrg, *flOrgUnit, *flCountry, *flDepotPath); err != nil {
+				fmt.Println(err)
+				return 1
+			}
 		}
 	}
 
@@ -253,7 +305,7 @@ func createKey(bits int, password []byte, depot string) (*rsa.PrivateKey, error)
 func createCertificateAuthority(key *rsa.PrivateKey, years int, commonName string, organization string, organizationalUnit string, country string, depot string) error {
 	cert := scepdepot.NewCACert(
 		scepdepot.WithYears(years),
-		scepdepot.WithCommonName(commonName),
+		scepdepot.WithCommonName(commonName+" (Internal Service)"),
 		scepdepot.WithOrganization(organization),
 		scepdepot.WithOrganizationalUnit(organizationalUnit),
 		scepdepot.WithCountry(country),
@@ -276,6 +328,33 @@ func createCertificateAuthority(key *rsa.PrivateKey, years int, commonName strin
 		return err
 	}
 
+	return nil
+}
+
+func createExternalCertificateAuthority(signer crypto11.Signer, years int, commonName string, organization string, organizationalUnit string, country string, depot string) error {
+	cert := scepdepot.NewCACert(
+		scepdepot.WithYears(years),
+		scepdepot.WithCommonName(commonName+" (Client CA)"),
+		scepdepot.WithOrganization(organization),
+		scepdepot.WithOrganizationalUnit(organizationalUnit),
+		scepdepot.WithCountry(country),
+	)
+	crtBytes, err := cert.SelfSign(rand.Reader, signer.Public().(crypto.PublicKey).(*rsa.PublicKey), signer)
+	if err != nil {
+		return err
+	}
+	name := filepath.Join(depot, "external-ca.pem")
+	file, err := os.OpenFile(name, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0400)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	if _, err := file.Write(pemCert(crtBytes)); err != nil {
+		file.Close()
+		os.Remove(name)
+		return err
+	}
 	return nil
 }
 
