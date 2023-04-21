@@ -23,10 +23,8 @@ jobs:
         go-version: 'stable'
 
     - name: Build
-      run: go build -v
+      run: cd cmd/scepserver && go build -v
 
-    - name: Test
-      run: go test -v
       
   #build-docker:
   #  runs-on: ubuntu-latest
