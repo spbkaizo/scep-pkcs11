@@ -19,7 +19,7 @@ jobs:
       with:
         go-version: 'stable'
 
-    - name: Build
+    - name: Build SCEP Server
       run: cd cmd/scepserver && go build -v
 
     - name: Build the Docker image
