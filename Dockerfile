@@ -1,10 +1,7 @@
-FROM alpine:3
+FROM debian:stable
 
-COPY ./scepclient-linux-amd64 /usr/bin/scepclient
-COPY ./scepserver-linux-amd64 /usr/bin/scepserver
+COPY cmd/scepserver/scepserver /usr/bin/scepserver
 
 EXPOSE 8080
 
-VOLUME ["/depot"]
-
-ENTRYPOINT ["scepserver"]
+ENTRYPOINT ["/usr/bin/scepserver"]
