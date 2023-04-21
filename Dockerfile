@@ -35,6 +35,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 RUN git clone https://github.com/microsoft/vcpkg
 
 RUN ./vcpkg/bootstrap-vcpkg.sh
+RUN ./vcpkg/vcpkg install "aws-sdk-cpp[*]"
 
 EXPOSE 8080
 
