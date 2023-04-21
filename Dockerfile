@@ -14,10 +14,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ccache \
     cmake \
     curl \
-    g++-11 \
+    g++ \
     git \
     libtool-bin \
-    # Required to build CMake
     libssl-dev \
     ninja-build \
     pkg-config \
@@ -26,13 +25,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     unzip \
     wget \
     yasm \
-    zip \
-    --fix-missing \
-    && update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-11 100 --slave /usr/bin/g++ g++ /usr/bin/g++-11 --slave /usr/bin/gcov gcov /usr/bin/gcov-11 \
-    && apt-get upgrade -y \
-    && rm -rf /var/lib/apt/lists/* \
-    && apt clean autoclean && apt autoremove -y \
-    && rm -rf /var/lib/{apt,dpkg,cache,log}/
+    zip
+    #--fix-missing \    
+    #&& apt-get upgrade -y \
+    #&& rm -rf /var/lib/apt/lists/* \
+    #&& apt clean autoclean && apt autoremove -y \
+    #&& rm -rf /var/lib/{apt,dpkg,cache,log}/
 
 RUN git clone https://github.com/microsoft/vcpkg
 
