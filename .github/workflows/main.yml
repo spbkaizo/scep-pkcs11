@@ -26,9 +26,8 @@ jobs:
     - name: Install aws-sdk-cpp
       id: vcpkg
       uses: johnwason/vcpkg-action@v4
-      continue-on-error: true
       with:
-        pkgs: aws-sdk-cpp[kms, acm]
+        pkgs: aws-sdk-cpp[kms, acm-pca]
         triplet: x64-linux-dynamic
         token: ${{ github.token }}
 
