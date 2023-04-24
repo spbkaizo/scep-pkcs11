@@ -42,7 +42,7 @@ jobs:
     - name: Install build dependencies
       uses: ConorMacBride/install-package@v1
       with:
-        apt: build-essential libjson-c-dev libp11-kit-dev
+        apt: build-essential libjson-c-dev libp11-kit-dev libcurl4 libcurl4-openssl-dev
     
     - name: Build aws-kms-pkcs11
       run: cd aws-kms-pkcs11 && AWS_SDK_PATH=${{ github.workspace }}/vcpkg/installed/x64-linux-dynamic make
