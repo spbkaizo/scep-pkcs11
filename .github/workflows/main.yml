@@ -56,7 +56,7 @@ jobs:
     - run: ls -R ${{ github.workspace }}
     
     - name: Build the Docker image
-      run: docker build . --file scep-pkcs11/Dockerfile --tag scep-pkcs11:$(date +%s)
+      run: docker build --file scep-pkcs11/Dockerfile --tag scep-pkcs11:$(date +%s) .
   
   #deploy-docker:
     # push to github docker register
