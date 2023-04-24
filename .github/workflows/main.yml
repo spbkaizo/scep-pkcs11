@@ -28,7 +28,7 @@ jobs:
       continue-on-error: true
       with:
         pkgs: aws-sdk-cpp[kms]
-        triplet: x64-linux
+        triplet: x64-linux-dynamic
         token: ${{ github.token }}
 
     - run: ls -R /home/runner/work/scep-pkcs11/scep-pkcs11/vcpkg/installed
