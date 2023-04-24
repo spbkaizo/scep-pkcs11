@@ -25,21 +25,26 @@ jobs:
     - name: Install aws-sdk-cpp
       id: vcpkg
       uses: johnwason/vcpkg-action@v4
+      continue-on-error: true
       with:
         pkgs: aws-sdk-cpp[*]
         triplet: x64-linux-release
         token: ${{ github.token }}
 
-    - name: Download aws
-      uses: robinraju/release-downloader@v1.7
-      with:
-        repository: "JackOfMostTrades/aws-kms-pkcs11"
-        latest: true
-        fileName: "aws_kms_pkcs11.x86_64.so"
-        out-file-path: "aws-kms-pkcs11"
+    - run: cat /home/runner/work/scep-pkcs11/scep-pkcs11/vcpkg/buildtrees/aws-sdk-cpp/config-x64-linux-release-rel-CMakeCache.txt.log
+    - run: cat /home/runner/work/scep-pkcs11/scep-pkcs11/vcpkg/buildtrees/aws-sdk-cpp/config-x64-linux-release-rel-err.log
+    - run: cat /home/runner/work/scep-pkcs11/scep-pkcs11/vcpkg/buildtrees/aws-sdk-cpp/config-x64-linux-release-rel-out.log
 
-    - name: Build the Docker image
-      run: docker build . --file Dockerfile --tag scep-pkcs11:$(date +%s)
+    #- name: Download aws-kms-pkcs11
+    #  uses: robinraju/release-downloader@v1.7
+    #  with:
+    #    repository: "JackOfMostTrades/aws-kms-pkcs11"
+    #    latest: true
+    #    fileName: "aws_kms_pkcs11.x86_64.so"
+    #    out-file-path: "aws-kms-pkcs11"
+
+    #- name: Build the Docker image
+    #  run: docker build . --file Dockerfile --tag scep-pkcs11:$(date +%s)
   
   #deploy-docker:
     # push to github docker register
