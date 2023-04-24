@@ -12,7 +12,7 @@ COPY vcpkg/installed/x64-linux-dynamic/lib/* /usr/local/lib/
 # Copy SCEP server images
 COPY scep-pkcs11/cmd/scepserver/scepserver /usr/bin/scepserver
 
-
+RUN /usr/sbin/ldconfig
 EXPOSE 8080
 
 ENTRYPOINT ["/usr/bin/scepserver"]
