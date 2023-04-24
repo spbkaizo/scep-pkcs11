@@ -4,8 +4,10 @@ FROM debian:stable
 RUN apt update && apt install -y libjson libssl1.1
 
 # Install aws kms
-#COPY aws-kms-pkcs11/aws_kms_pkcs11.x86_64.so /tmp/
-#RUN install -m 0644 -o root -g bin /tmp/aws_kms_pkcs11.x86_64.so /usr/lib/
+COPY aws-kms-pkcs11/aws-kms-pkcs11.so /usr/local/lib/
+
+# Copy all aws sdk cpp lib
+COPY vcpkg/installed/x64-linux-dynamic/lib/* /usr/local/lib/
 
 # Copy SCEP server images
 COPY scep-pkcs11/cmd/scepserver/scepserver /usr/bin/scepserver
