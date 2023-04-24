@@ -1,7 +1,7 @@
 FROM debian:stable
 
 # Install aws kms dependencies
-RUN apt update && apt install -y libjson-c4 libssl1.1
+RUN apt update && apt install -y libjson libssl1.1
 
 # Install aws kms
 COPY aws-kms-pkcs11/aws_kms_pkcs11.x86_64.so /tmp/
