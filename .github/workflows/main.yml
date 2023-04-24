@@ -31,8 +31,6 @@ jobs:
         triplet: x64-linux-dynamic
         token: ${{ github.token }}
 
-    #- run: ls -R /home/runner/work/scep-pkcs11/scep-pkcs11/vcpkg/installed
-
     - name: Checkout aws-kms-pkcs11
       uses: actions/checkout@v3
       with:
@@ -55,6 +53,8 @@ jobs:
     #     fileName: "aws_kms_pkcs11.x86_64.so"
     #     out-file-path: "aws-kms-pkcs11"
 
+    - run: ls -R ${{ github.workspace }}
+    
     - name: Build the Docker image
       run: docker build . --file scep-pkcs11/Dockerfile --tag scep-pkcs11:$(date +%s)
   
