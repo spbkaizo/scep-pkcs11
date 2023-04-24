@@ -28,7 +28,7 @@ jobs:
       uses: johnwason/vcpkg-action@v4
       continue-on-error: true
       with:
-        pkgs: aws-sdk-cpp[kms]
+        pkgs: aws-sdk-cpp[kms, acm]
         triplet: x64-linux-dynamic
         token: ${{ github.token }}
 
