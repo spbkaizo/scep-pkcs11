@@ -1,7 +1,7 @@
-FROM ubuntu:stable
+FROM ubuntu:latest
 
 # Install aws kms dependencies
-RUN apt update && apt install -y libjson-c libssl1.1
+RUN apt update && apt install -y libjson-c5 libssl1.1
 
 # Install aws kms
 COPY aws-kms-pkcs11/aws-kms-pkcs11.so /usr/local/lib/
