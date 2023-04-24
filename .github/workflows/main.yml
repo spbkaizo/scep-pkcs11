@@ -46,7 +46,7 @@ jobs:
         apt: build-essential libjson-c-dev libp11-kit-dev
     
     - name: Build aws-kms-pkcs11
-      run: AWS_SDK_PATH=${{ github.workspace }}/vcpkg/installed/x64-linux-dynamic make
+      run: cd aws-kms-pkcs11 && AWS_SDK_PATH=${{ github.workspace }}/vcpkg/installed/x64-linux-dynamic make
         
     # - name: Download aws-kms-pkcs11
     #   uses: robinraju/release-downloader@v1.7
