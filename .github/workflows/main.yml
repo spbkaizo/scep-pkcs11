@@ -48,16 +48,6 @@ jobs:
     
     - name: Build aws-kms-pkcs11
       run: cd aws-kms-pkcs11 && AWS_SDK_PATH=${{ github.workspace }}/vcpkg/installed/x64-linux-dynamic make
-        
-    # - name: Download aws-kms-pkcs11
-    #   uses: robinraju/release-downloader@v1.7
-    #   with:
-    #     repository: "JackOfMostTrades/aws-kms-pkcs11"
-    #     latest: true
-    #     fileName: "aws_kms_pkcs11.x86_64.so"
-    #     out-file-path: "aws-kms-pkcs11"
-
-    #- run: ls -R ${{ github.workspace }}
     
     - name: Set up QEMU
       uses: docker/setup-qemu-action@v2
