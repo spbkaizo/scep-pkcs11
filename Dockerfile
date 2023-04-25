@@ -1,7 +1,7 @@
 FROM ubuntu:latest
 
 # Install aws kms dependencies
-RUN apt update && apt install -y libjson-c5
+RUN apt update && apt install -y libjson-c5 awscli
 
 # Install aws kms
 COPY aws-kms-pkcs11/aws_kms_pkcs11.so /usr/local/lib/
