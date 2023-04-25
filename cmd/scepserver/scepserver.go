@@ -289,7 +289,7 @@ func createKey(bits int, password []byte, depot string) (*rsa.PrivateKey, error)
 		rsaPrivateKeyPEMBlockType,
 		x509.MarshalPKCS1PrivateKey(key),
 		password,
-		x509.PEMCipher3DES,
+		x509.PEMCipherAES256,
 	)
 	if err != nil {
 		return nil, err
