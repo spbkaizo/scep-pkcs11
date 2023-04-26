@@ -16,6 +16,7 @@ RUN /usr/sbin/ldconfig
 COPY scep-pkcs11/cmd/scepserver/scepserver /usr/bin/scepserver
 # Add startup.sh
 COPY scep-pkcs11/startup.sh /startup.sh
+RUN chmod 0755 /startup.sh
 EXPOSE 8080
 
 ENTRYPOINT ["/startup.sh"]
