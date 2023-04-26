@@ -1,8 +1,8 @@
 #!/bin/bash
 
-DEPOT=/depot
+#DEPOT=/depot
 PKCS11CONF=${DEPOT}/pkcs11-config.json
-REGION=eu-west-1
+#REGION=eu-west-1
 
 # things to grab from environment variables
 # see https://github.com/PortSwigger/scep-pkcs11/blob/main/cmd/scepserver/scepserver.go#L47 for more details
