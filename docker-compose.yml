@@ -1,0 +1,10 @@
+version: "0.9"
+services:
+  scep:
+    image: ghcr.io/portswigger/scep-pkcs11:main
+    ports: 
+      - "8080:8080"
+    volumes:
+      - ./depot/:/mydepot
+    env_file:
+      - ./env-file
