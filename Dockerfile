@@ -15,6 +15,6 @@ RUN /usr/sbin/ldconfig
 # Copy SCEP server images
 COPY scep-pkcs11/cmd/scepserver/scepserver /usr/bin/scepserver
 
-EXPOSE 2016
+EXPOSE 8080
 
-ENTRYPOINT ["/usr/bin/scepserver"]
+ENTRYPOINT ["/startup.sh"]
