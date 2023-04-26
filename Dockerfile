@@ -14,7 +14,8 @@ RUN /usr/sbin/ldconfig
 
 # Copy SCEP server images
 COPY scep-pkcs11/cmd/scepserver/scepserver /usr/bin/scepserver
-
+# Add startup.sh
+COPY scep-pkcs11/startup.sh /startup.sh
 EXPOSE 8080
 
 ENTRYPOINT ["/startup.sh"]
