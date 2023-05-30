@@ -15,7 +15,7 @@ PKCS11CONF=${DEPOT}/pkcs11-config.json
 # SCEP_LOG_JSON (bool)
 # SCEP_LOG_DEBUG (bool)
 # 
-# things that should exist in secrets manager and be available to us via env variables
+# things that should exist in ssm parameter store and be available to us via env variables
 #SM_PKCS11_CONF=""     # an ARN of the config used by scepserver -pkcs11-config argument
 #SM_KMS_CONFIG=""      # an ARN of the config file used by the pkcs11 shim to be stored in /etc/aws-kms-pkcs11/config.json
 
@@ -24,12 +24,12 @@ PKCS11CONF=${DEPOT}/pkcs11-config.json
 
 # takes secret arn, secret name. returns just the secret.
 getsecretvalue() {
-        aws secretsmanager get-secret-value --secret-id $1 --region=${REGION} | jq --raw-output '.SecretString' | jq -r .$2 
+        aws ssm get-parameter --name $1 --with-decryption |  jq --raw-output '.Parameter.Value'
 }
 
 # takes secretarn, filename to write contents to
 getsecretblob() {
-        aws secretsmanager get-secret-value --secret-id $1 --region ${REGION} --query SecretBinary  | sed s/\"//g | base64 -d > $2
+        aws ssm get-parameter --name $1 --region=${REGION} | jq --raw-output '.Value' > $2
         echo grabbing $1 saving to $2
 }
 
