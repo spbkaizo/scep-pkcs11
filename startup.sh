@@ -45,6 +45,8 @@ if [ ! -f /etc/aws-kms-pkcs11/config.json ]; then
         getsecretblob ${SM_KMS_CONFIG} /etc/aws-kms-pkcs11/config.json
 fi
 
+cat /etc/aws-kms-pkcs11/config.json || echo "Failed to read /etc/aws-kms-pkcs11/config.json" && exit 1
+
 CAPASS=`getsecretvalue $SCEP_CA_PASS`
 CHALLENGE=`getsecretvalue $SCEP_CHALLENGE_PASSWORD`
 
