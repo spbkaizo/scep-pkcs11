@@ -1,0 +1,5 @@
+SM_KMS_CONFIG="arn:aws:secretsmanager:eu-west-1:....."
+SM_PKCS11_CONF="arn:aws:secretsmanager:eu-west-1:...."
+SM_CMD_SECRETS_ARN="arn:aws:secretsmanager:eu-west-1:...."
+REGION="eu-west-1"
+DEPOT="/my-persistent-depot-volume"
